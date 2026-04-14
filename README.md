@@ -14,4 +14,8 @@ Datas:
 - P_sediment fluxes : estimated annual sediment burial in total phosphorus (in tP/year).
 
 2. b. Dissolved Oxygen (DO)
+- DO_CTD.csv : provides Dissolved oxygen concentrations (DO in mg O2/l) at every depth for each sampling dates (monthly in between 2002 and 2017) measured by vertical profiles using a multiparameter probe.
+- DO_CTD25.csv : provides Dissolved oxygen concentrations (DO mg O2/l) at the 25m depth for each sampling dates (monthly in between 2002 and 2017) measured by vertical profiles using a multiparameter probe. DOY=day of year.
+-	DO_mixing_anoxia.csv: provides for each year between 2002 and 2017 the max DO concentrations (mg O2/l) at the lake max depth (40m) at winter mixing (i.e., the mixing efficiency) and the day of the year at which anoxia was reached at the lake bottom (anoxDOY).
+-	DO_hypo.csv: provides between 2002 and 2017 the total DO mass (ktO2) in the hypolimnion at each monthly sampling date in between 2002-2017.
 
