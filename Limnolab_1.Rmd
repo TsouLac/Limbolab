@@ -1,0 +1,438 @@
+---
+title: "Limnolab 1"
+author: "Randrianasolo Iriana"
+date: "2026-02-26"
+output: html_document
+---
+# **The hydrological balance of Murtensee : sources, sinks, balance and impact assesment**
+
+## 1.	Lake setting and context
+
+
+a. Gather necessary background information for Murtensee (map, location, lake surface area and volume, catchment surface area, lake hydrological setting (inflows, outflows etc…).
+   - Coordinates: 
+       - 46° 55′ 50.34″ N 7° 04′ 56.92″ E (WG9)
+       - 2'572'877.11, 1'197'790.28 (CH 1903+ / LV95)
+   - Surface area = 22.8 km^2
+   - Volume = 0.55 km^3
+   - Depth = 45 m
+   - Residence time = 580 days
+   - Catchment size = 713 km2
+Primary inflows:	Broye
+Primary outflows:	Broye canal
+
+```{r}
+A           = 22.8 *10**6   # Surface area [m2]
+V           = 0.55 * 10**9  # Volume [m3]
+Depth       = 45            # Depth [m]
+R_T         = 580           # Residence time [d]
+A_catchment = 713 * 10**6   # Catchment surface area [m2]
+
+```
+
+References: 
+Alplakes. (2026). Lake Murten. https://www.alplakes.eawag.ch/murten
+
+Datalakes. (2026). Lake Murten. https://www.datalakes-eawag.ch/lakemorphology?lakemurten_26
+
+Maps of Switzerland—Swiss Confederation—Map.geo.admin.ch. (2026). Consulté 26 février 2026, à l’adresse https://map.geo.admin.ch/#/map?lang=fr&center=2572578.51,1197962.38&z=5.85&topic=ech&layers=ch.swisstopo.zeitreihen@year=1864,f;ch.bfs.gebaeude_wohnungs_register,f;ch.bav.haltestellen-oev,f;ch.swisstopo.swisstlm3d-wanderwege,f;ch.vbs.schiessanzeigen,f;ch.astra.wanderland-sperrungen_umleitungen,f&bgLayer=ch.swisstopo.pixelkarte-farbe 
+
+Murtensee—Murten. (2026). https://www.hydrodaten.admin.ch/en/seen-und-fluesse/stations/2004
+
+
+b.	From the dataset of 2016, <br>
+i.	plot the daily discharge of inflows over the year. What is the hydrological regime of the rivers coming in lake Morat?
+
+
+```{r}
+dataset_2016 <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_1_HYDRO-20260226/Daily_dataset_hydro_Murtensee_2016.csv")
+
+Daily_dataset <- as.data.frame(dataset_2016)
+
+# Plot of the daily discharge of inflow over the year
+plot(Daily_dataset$DOY, Daily_dataset$Discharge_in, type = "l", xlab=" Day of the year", ylab="Discharge of the inflow (La Broye) [m3/s]")
+
+# Plot the daily discharge of inflow over the year with the seasons
+library(ggplot2)
+
+Daily_dataset$Season <- cut(Daily_dataset$DOY, 
+                            breaks = c(0, 80, 171, 266, 354, 366),
+                            labels = c("Winter", "Spring", "Summer", "Fall", "Winter"),
+                            include.lowest = TRUE)
+ggplot(Daily_dataset, aes(x = DOY, y = Discharge_in)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "Discharge [m3/s]" )+
+  theme_minimal()
+
+Discharge_Inflow <- Daily_dataset$Discharge_in
+summary(Discharge_Inflow)
+
+```
+So the hydrological regime of the rivers coming in lake Morat is pluvio-nival
+ - Maximum discharge in Spring
+ 
+ii.	What is the annual and average daily fluctuation in the lake water height?
+
+```{r}
+
+# Annual fluctuation in the lake water height 
+max(Daily_dataset$Lake_Height)-min(Daily_dataset$Lake_Height)
+
+# Daily fluctuation in the lake water height is how much variation we get in the same day
+Hourly_dataset <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_1_HYDRO-20260226/hourly_dataset_hydro_Murtensee_Schiffensee.csv")
+Hourly_dataset <- as.data.frame(Hourly_dataset)
+
+library(dplyr)
+daily_fluctuation <- Hourly_dataset %>%
+  group_by(DOY) %>% 
+  summarise(
+    Max_Height = max(Lake_Height),
+    Min_Height = min(Lake_Height),
+    Fluctuation = max(Lake_Height) - min(Lake_Height)
+  )
+daily_fluctuation
+
+# Plot of the daily fluctuation in the lake water height
+plot(Daily_dataset$DOY, daily_fluctuation$Fluctuation, type = "l", xlab=" Day of the year", ylab="daily fluctuation in the lake water height [m]")
+
+mean(daily_fluctuation$Fluctuation)
+
+# Plot with the seasons
+ggplot(Daily_dataset, aes(x = DOY, y = daily_fluctuation$Fluctuation)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "Fluctuation in the lake water height [m]")+
+  theme_minimal()
+
+```
+The annual fluctuation in the lake water height is 0.006745962 m
+
+
+## 2. Hydrological water balance of Murtensee:
+
+a. Pen and paper: write down the hydrological equation and indicate which terms can be computed and how, based on available data. How will you close up the hydrological equation. 
+
+          Hydrological equation: P = Q + ET + S 
+With:
+  - P: Precipitation
+  - Q: Runoff
+  - S: Variation in storage
+
+
+b. Compute and plot  dV/dt in m3/d
+
+                  dV/dt = A(h) * dh/dt
+
+With:
+- dV/dt: Change in lake volume V over time
+- A(h): Lake surface 
+- dh/dt: Changes in lake height h
+
+```{r}
+#dV_dt = (A) * daily_fluctuation$Fluctuation
+dh_net <- c(0, diff(Daily_dataset$Lake_Height))
+dV_dt = A * dh_net
+
+# Plot of dV/dt
+plot(Daily_dataset$DOY, dV_dt, type = "l", xlab=" Day of the year", ylab="dV/dt [m3/d]")
+
+# Plot with the seasons
+ggplot(Daily_dataset, aes(x = DOY, y = dV_dt)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "dV/dt [m3/d]" )+
+  theme_minimal()
+
+```
+
+
+
+c. Compute and plot daily in- and outflows (herein, La Broye is considered as the only significant inflow) in m3/d
+
+```{r}
+
+# Compute: Conversion of the unity from [m3/s] to [m3/d]
+# Daily inflow
+Inflow <- (Daily_dataset$Discharge_in*86400)
+
+# Daily outflow
+Outflow <- (Daily_dataset$Discharge_out*86400)
+
+# Plot
+library(ggplot2)
+
+# Daily inflow
+#subplot(1,2,1)
+plot(Daily_dataset$DOY, Inflow, type = "l", xlab=" Day of the year", ylab="Daily inflow [m3/d]")
+
+# Plot with the seasons
+ggplot(Daily_dataset, aes(x = DOY, y = Inflow)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "Daily inflow [m3/d]" )+
+  theme_minimal()
+
+
+# Daily outflow
+#subplot(1,2,2)
+plot(Daily_dataset$DOY, Outflow, type = "l", xlab=" Day of the year", ylab="Daily outflow [m3/d]")
+
+# Plot with the seasons
+ggplot(Daily_dataset, aes(x = DOY, y = Outflow)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "Daily outflow [m3/d]" )+
+  theme_minimal()
+```
+
+
+d.Compute daily water volumes coming from direct precipitations on the lake in m3/d
+
+```{r}
+P = Daily_dataset$Prec*(10^(-3))
+P_Total = P*(A)
+
+# Plot: Daily precipitation
+plot(Daily_dataset$DOY, P_Total, type = "l", xlab=" Day of the year", ylab="Precipitation [m3/d]")
+
+# Plot with the seasons
+ggplot(Daily_dataset, aes(x = DOY, y = P_Total)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "Precipitation [m3/d]" )+
+  theme_minimal()
+
+```
+
+
+e. Compute water volume evaporated daily using the Jensen-Haise’s equation, in m3/d
+
+
+            Jensen-Haise’s equation (in mm per day):
+            E=(0.025* Air_T +0.08)* Rad/28.6 
+
+```{r}
+E = (0.025* Daily_dataset$Air_T +0.08)* Daily_dataset$Rad/28.6
+
+# Volume evaporated
+V_E = (E/1000)*A
+
+# Plot: Water volume evaporated daily
+plot(Daily_dataset$DOY, V_E, type = "l", xlab=" Day of the year", ylab="Water volume evaporated daily [m3/d]")
+
+# Plot with the seasons
+ggplot(Daily_dataset, aes(x = DOY, y = V_E)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "Volume evaporated [m3]" )+
+  theme_minimal()
+```
+
+
+f. Compute the unaccounted water flows that could be attributed to groundwaters in Murtensee. What share of inflows might come from groundwaters or run-off?
+
+dV/dt = Qin - Qout + Qgwin - Qgwout + (P-E) A(h)
+
+So Qgw = dV-dt - Qin + Qout - (P-E)*A(h)
+
+```{r}
+# Q = dV_dt - Inflow + Outflow - (P_Total-V_E) # E is in [mm/d] and is converted to [m/d]
+Q = dV_dt_net - Inflow + Outflow - (P_Total - V_E)
+# Plot: Unaccounted water flows that could be attributed to groundwaters
+plot(Daily_dataset$DOY, Q, type = "l", xlab=" Day of the year", ylab="Unaccounted water flows [m3/d]")
+
+# Plot with the seasons
+ggplot(Daily_dataset, aes(x = DOY, y = Q)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "Unaccounted water flows [m3/d]" )+
+  theme_minimal()
+
+
+Share = (Q/dV_dt)
+summary(Share)
+
+# Plot: Proportion of unaccounted water flows that could be attributed to groundwaters
+plot(Daily_dataset$DOY, Share, type = "l", xlab=" Day of the year", ylab="Proportion of unaccounted water flows [%]")
+
+# Plot with the seasons
+ggplot(Daily_dataset, aes(x = DOY, y = Share)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(x = "Day of the Year", 
+       y = "Proportion of water flows from the groundwater [%]" )+
+  theme_minimal()
+```
+
+
+g. Make a barplot comparing daily averages of inputs/outputs per type.
+
+```{r}
+mean_inflow  <- mean(Inflow)
+mean_precip  <- mean(P_Total)
+mean_outflow <- mean(Outflow)
+mean_evap    <- mean(V_E)
+mean_groundwater <- mean(Q)
+
+flows_summary <- data.frame(
+  Category = c("Inflow", "Inflow", "Inflow", "Outflow", "Outflow"),
+  Component = c("Broye River", "Precipitation", "Groundwater", "Broye Canal", "Evaporation"),
+  Value = c(mean_inflow, mean_precip,mean_groundwater, mean_outflow, mean_evap)
+)
+
+ggplot(flows_summary, aes(x = Category, y = Value, fill = Component)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("blue", "lightblue", "gold", "brown", "darkblue")) +
+  labs(
+    title = "Average Daily Water Balance",
+    x = "",
+    y = "Mean Flow [m3/d]",
+    fill = "Legend"
+  ) +
+  theme_minimal()
+
+```
+
+
+## 3. Impact assessment for the Schiffenen connexion
+Groupe E, the renewable energy company already managing Schiffensee, a hydroelectrical reservoir 9 km South-East from Murtensee has the long-standing project to build up an underground canal connecting both lakes to increase the potential hydroelectricity production. Water will be pumped at depth in Schiffensee, and turbined in an underground power plant, before released on Lake Morat, with a provisional pumping flow of 100 m3/s for 8 hours everyday. 
+
+
+a. Are volumes brought by the Schiffenen connection significant as compared to the natural river inflows?
+The Schiffenen connexion will bring 800 m3 of water per day
+```{r}
+Schiffnen_In <- 100*8*3600 # [m3/d]
+
+cat("Mean Inflow brought by The Broye river", mean(Inflow),"[m3/d] \n")
+cat("Inflow brought by the Schiffnen connection", Schiffnen_In,"[m3/d] \n")
+cat("Pumped Volume vs Natural Inflow Ratio:", Schiffnen_In/ mean(Inflow), "[m3/d]")
+```
+The volume of water from the Schiffenen connection is approximately 3.8 times greater than the average natural inflow from the rivers (primarily the Broye). This represents a massive increase in the total water input to Lake Morat, which would fundamentally alter its hydrological balance and hydraulic pressure.
+
+b. What are the water residence time in days for Lake Morat now, and after the project the connexion with Schiffenen has been realized? Is this a significant change? How do you expect it to affect the characteristics of Lake Morat?
+
+```{r}
+Inputs <-Inflow + P_Total + Q
+mean_Inputs <- mean(Inputs)
+RT_O <- V/mean(Outflow)
+RT_I <- V / mean_Inputs
+RT_project <- V / (mean_Inputs + Schiffnen_In)
+
+cat("Residence Time (Now):", RT_O, "days\n")
+cat("Residence Time (Now):", RT_I, "days\n")
+cat("Residence Time (Project):", RT_project, "days\n")
+
+Update_In <- Inputs + Schiffnen_In
+
+# Plot 
+ggplot(Daily_dataset) +
+  geom_line(aes(x = DOY, y = Inputs), 
+            color = "orange", size = 1) + 
+  geom_line(aes(x = DOY, y = Update_In), 
+            color = "purple", size = 1) +
+  
+  labs(x = "Day of the Year", 
+       y = "Daily inflow [m3/d]") +
+  theme_minimal()
+```
+
+
+
+c. Estimate the daily change in water level due to the additional water influx from Schiffenen (assuming no immediate change in the discharge out). Is it significant as compared to the current water level fluctuations? Is it something that needs to be on check, shall the project be realized?
+```{r}
+# c. Daily level change due to pump
+dH_project <- Schiffnen_In / A
+cat("Daily level rise from project influx:", dH_project, "m\n")
+
+# Plot 
+ggplot(daily_fluctuation) +
+  geom_line(aes(x = DOY, y = Fluctuation), 
+            color = "orange", size = 1) + 
+  geom_line(aes(x = DOY, y = (Fluctuation + dH_project)), 
+            color = "purple", size = 1) +
+  
+  labs(x = "Day of the Year", 
+       y = "Fluctuation in the lake water height [m]") +
+  theme_minimal()
+```
+
+```{r}
+library(patchwork)
+
+p1 <- ggplot(Daily_dataset, aes(x = DOY, y = daily_fluctuation$Fluctuation)) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(title = "a) Daily fluctuation in 2016",
+       x = "Day of the Year", 
+       y = "Height [m]") +
+  theme_minimal()
+
+
+
+daily_fluctuation$Season <- cut(daily_fluctuation$DOY, 
+                            breaks = c(0, 80, 171, 266, 354, 366),
+                            labels = c("Winter", "Spring", "Summer", "Fall", "Winter"),
+                            include.lowest = TRUE)
+
+p2 <- ggplot(daily_fluctuation, aes(x = DOY, y = (Fluctuation + dH_project))) +
+  geom_line(aes(color = Season, group = 1), size = 1) + 
+  scale_color_manual(values = c("Winter" = "lightblue", "Spring" = "green", 
+                                "Summer" = "gold", "Fall" = "brown")) +
+  labs(title = "b) Daily fluctuation with the Schiffnen connection",
+       x = "Day of the Year", 
+       y = "Height [m]") +
+  theme_minimal()
+
+p1 / p2
+```
+```{r}
+p3 <- ggplot(flows_summary, aes(x = Category, y = Value, fill = Component)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("blue", "lightblue", "gold", "brown", "darkblue")) +
+  labs(
+    title = "a) 2016",
+    x = "",
+    y = "Mean Flow [m3/d]",
+    fill = "Legend"
+  ) +
+  theme_minimal()
+
+flows_summary2 <- data.frame(
+  Category = c("Inflow", "Inflow", "Inflow", "Inflow", "Outflow", "Outflow"),
+  Component = c("Broye River", "Precipitation", "Groundwater","Schiffnen connection", "Broye Canal", "Evaporation"),
+  Value = c(mean_inflow, mean_precip,mean_groundwater,Schiffnen_In, mean_outflow, mean_evap)
+)
+
+p4 <- ggplot(flows_summary2, aes(x = Category, y = Value, fill = Component)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("blue", "lightblue", "gold", "purple","brown", "darkblue")) +
+  labs(
+    title = "b) Schiffnen connection",
+    x = "",
+    y = "Mean Flow [m3/d]",
+    fill = "Legend"
+  ) +
+  theme_minimal()
+
+p3 | p4
+```
+
