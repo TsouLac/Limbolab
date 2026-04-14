@@ -1,0 +1,190 @@
+---
+title: "Limnolab_3_Phosphore"
+author: "Randrianasolo Iriana"
+date: "2026-03-18"
+output: html_document
+---
+
+```{r}
+# Morphological data
+
+V     = 0.55 # Lake total volume [km3]
+V_h   = 0.34 # Volume of the hypolimnion (< 10 m depth) [km3]
+S_h   = 17   # Surface of the hypolimnion (< 10 m depth) [km2]
+S_a_h = 9    # Surface of the anoxic hypolimnion (< 30 m depth) [km2]
+```
+
+•	Available datasets
+- P_inflow_outflow_Murten : annual water discharges (m3/s) and average TP and PO4 concentrations (mg/m3) in lake Morat’s inflows and outflow (La Broye Canal) between 1988 and 2008 (i.e. when most remediation actions were undertaken).
+- Murtensee_P: annual average concentrations in TP and PO4 (winter average) and in the epilimnion in mg/l in lake Morat 1988-2024.
+-	P_sediment fluxes : estimated annual sediment burial in total phosphorus (in tP/year). These estimates were computed from dated sediment cores.
+-	Murtensee_chemistry_1986_2025: complete datasets of chemical and biological monitoring in Lake Morat since 1986.
+
+
+```{r}
+# Load the files
+P_inflow_outflow_Murten <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_3_P-20260318/P_inflows_outflow_Murten.csv")
+
+Murtensee_P <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_3_P-20260318/Murtensee_P.csv") 
+
+P_sediment_fluxes <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_3_P-20260318/P_sediment_fluxes.csv")
+
+#Murtensee_chemistry_1986_2025 <- read.xlsx("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_3_P-20260318/Murtensee_Chemistry_1986_2025.xlsx")
+```
+
+1.	Using P data from inflows estimate the relative share of the different inflows in terms of TP inputs to lake Morat in 1988 and 2008. Where were the major remediation actions undertaken? 
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+P_inflow_outflow_Murten_1988 <- P_inflow_outflow_Murten %>% filter(year==1988)
+P_inflow_outflow_Murten_1988
+
+
+P_inflow_outflow_Murten_2008 <- P_inflow_outflow_Murten %>% filter(year==2008)
+P_inflow_outflow_Murten_2008
+
+```
+```{r}
+# 1988
+P_inflow_outflow_Murten_1988 <- P_inflow_outflow_Murten_1988 %>% 
+  mutate(water_discharge_m3s = as.numeric(water_discharge_m3s))
+
+P_inflow_outflow_Murten_1988 <- P_inflow_outflow_Murten_1988 %>% 
+  mutate(Ptot_mgl = as.numeric(Ptot_mgl))
+  
+P_inflow_outflow_Murten_1988 <- P_inflow_outflow_Murten_1988 %>%
+  mutate(P_annual = (water_discharge_m3s * Ptot_mgl * 24 * 3600 * 365)/10^9)
+
+P_inflow_outflow_Murten_1988
+
+P_in_1988 <- P_inflow_outflow_Murten_1988 %>%
+  filter(type == "inflow") %>%
+  mutate(total = sum(P_annual))  # Unit tonnes [g]
+
+P_in_1988
+
+# 2008
+P_inflow_outflow_Murten_2008 <- P_inflow_outflow_Murten_2008 %>% 
+  mutate(water_discharge_m3s = as.numeric(water_discharge_m3s))
+
+P_inflow_outflow_Murten_2008 <- P_inflow_outflow_Murten_2008 %>% 
+  mutate(Ptot_mgl = as.numeric(Ptot_mgl))
+  
+P_inflow_outflow_Murten_2008 <- P_inflow_outflow_Murten_2008 %>%
+  mutate(P_annual = (water_discharge_m3s * Ptot_mgl * 24 * 3600 * 365)/10^9)
+
+P_inflow_outflow_Murten_2008
+
+P_in_2008 <- P_inflow_outflow_Murten_2008 %>%
+  filter(type == "inflow") %>%
+  mutate(total = sum(P_annual)) # Unit tonnes [g]
+
+P_in_2008
+
+```
+```{r}
+# Plot
+library (ggplot2)
+P_comparaison_1988_2008<- rbind(P_in_1988, P_in_2008)
+
+P_comparaison_1988_2008 <- P_comparaison_1988_2008 %>%
+  mutate(Share = P_annual/total)
+
+ggplot(P_comparaison_1988_2008, aes(x = as.factor(year), y = P_annual, fill = as.factor(River))) +
+  geom_col() + 
+  labs(title = "Comparaison de la charge de Phosphore : 1988 vs 2008",
+       x = "Year",
+       y = "Annual P (tP/y)",
+       fill = "Inflow source") +
+  theme_minimal()
+```
+2.	From 2008 onwards, we consider P inflows to be constant. The Ptot concentration in the lake are stable (i.e. we’ve reached steady state). What does that mean for the balance in P of the lake.
+Steady state >=> dP/dt = 0
+
+It means that P_in - P_out -P_NetSed = 0
+
+```{r}
+P_sediment_fluxes_2008 <- P_sediment_fluxes %>%
+  filter(year == 2008)
+
+P_in  = 39.15923  # [tP/y]
+P_out = 4.5222624 # [tP/y]
+P_NetSed = 41	
+
+
+P_in-P_out-P_NetSed # = 6.4 which is the internal load or due to P diffusion
+```
+
+5. 	Sediment core incubations showed a release of 0.23 mmol/m2/d of P in anoxic conditions. Considering that over 100 days per year, the whole hypolimnion gets anoxic up to the 10m depth (estimated sediment surface area of 9 km2), what is the amount of P released annually by the sediment? Conclude on the current P budget of Lake Morat.
+
+```{r}
+release_rate <- 0.23       # [mmol/m2/d]
+duration_days <- 100       # Days of anoxia per year 
+molar_mass_P <- 30.97      # g/mol
+
+S_a_h_m2 <- S_a_h * 1e6  
+
+total_mmol <- release_rate * S_a_h_m2 * duration_days
+total_grams <- total_mmol * (molar_mass_P / 1000)
+total_tons <- total_grams / 1e6
+
+cat("Annual P released by sediment:", total_tons, "tP/yr")
+```
+7. Assess how the Schiffnen connection will affect the final lake P concentrations
+```{r}
+# Beta
+Murtensee_P_2008 <- Murtensee_P %>% 
+  filter(Year == 2008) %>%
+  mutate(P_winter = as.numeric(TP_winter_mgl), 
+         P_epi = as.numeric(TP_epi_mgl))
+
+beta <- Murtensee_P_2008$TP_winter_mgl / Murtensee_P_2008$TP_epi_mgl
+cat("Parameter beta:", beta, "\n")
+
+
+# Sigma 
+P_mass_lake_2008 <- Murtensee_P_2008$TP_winter_mgl * V * 1000 # [tP]
+
+sigma <- P_NetSed / P_mass_lake_2008
+cat("Parameter sigma (yr-1):", sigma, "\n")
+
+
+#Phosphorus  After Connection
+Q_pump_m3s <- 100
+P_schiff_mg_m3 <- 40 
+P_schiff_load_t <- (Q_pump_m3s * P_schiff_mg_m3 * 24 * 3600 * 365) / 10^6 # [tP/yr]
+
+# New Inputs
+Pin_new <- P_in + P_schiff_load_t
+
+# Current residence time 
+Q_total_2008 <- sum(P_in_2008$water_discharge_m3s)
+tau_old <- (V * 10^9) / (Q_total_2008 * 24 * 3600 * 365) 
+
+# Residence time after connection
+tau_new <- (V * 10^9) / ((Q_total_2008 + Q_pump_m3s) * 24 * 3600 * 365) 
+
+# Steady State Equilibrium Concentration [P] 
+P_eq_new <- (Pin_new * 10^9) / ((V * 10^9) * (sigma + (beta / tau_new)))
+
+cat("New Equilibrium P Concentration (mg/m3):", P_eq_new, "\n")
+
+#  P Retention Rate
+Pout_old <- (beta / tau_old) * (P_conc_mix_2008 * 1000) * V # [tP/yr]
+retention_old <- (P_in - Pout_old) / P_in
+
+Pout_new <- (beta / tau_new) * (P_eq_new / 1000) * (V * 10^9) / 10^6 # [tP/yr]
+retention_new <- (Pin_new - Pout_new) / Pin_new
+
+cat("Residence time before", tau_old*365 , "d \n")
+cat("Residence time after", tau_new*365 , "d \n")
+cat("Retention Rate Before:", retention_old * 100, "%\n")
+cat("Retention Rate After:", retention_new * 100, "%\n")
+```
+
+
+
+
+
