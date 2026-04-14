@@ -1,0 +1,162 @@
+---
+title: "Limnolab_4"
+author: "Randrianasolo Iriana"
+date: "2026-03-24"
+output: html_document
+---
+Input datas:
+
+•	DO_CTD.csv : provides Dissolved oxygen concentrations (DO in mg O2/l) at every depth for each sampling dates (monthly in between 2002 and 2017) measured by vertical profiles using a multiparameter probe.
+
+•	DO_CTD25.csv : provides Dissolved oxygen concentrations (DO mg O2/l) at the 25m depth for each sampling dates (monthly in between 2002 and 2017) measured by vertical profiles using a multiparameter probe. DOY=day of year.
+
+•	DO_mixing_anoxia.csv: provides for each year between 2002 and 2017 the max DO concentrations (mg O2/l) at the lake max depth (40m) at winter mixing (i.e., the mixing efficiency) and the day of the year at which anoxia was reached at the lake bottom (anoxDOY).
+
+•	DO_hypo.csv: provides between 2002 and 2017 the total DO mass (ktO2) in the hypolimnion at each monthly sampling date in between 2002-2017.
+
+```{r}
+DO_CTD <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_4_DO-20260319/DO_CTD.csv ")
+
+DO_CTD25 <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_4_DO-20260319/DO_CTD25.csv ")
+
+DO_mixing_anoxia <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_4_DO-20260319/DO_mixing_anoxia.csv ")
+
+DO_hypo <- read.csv2("C:/Users/haren/OneDrive/Bureau/UNIL MA2/Aquatic ecosystems/LIMNOLAB_4_DO-20260319/DO_hypo.csv ")
+
+V_Tot = 0.55 # Lake total volume [km3]
+V_hypolimnion = 0.34 # Volume of the hypolimnion (<10m depth) [km3]
+S_hypolimnon = 17 # Surface of the hypolimnion (<10m depth) [km2]
+S_anoxic_hypolimnion = 9 # Surface of the anoxic hypolimnion (<30m depth) [km2]
+```
+
+2.	Using data from DO_mixing_anoxia.csv , test whether the date of appearance of anoxia at the lake bottom depends on the lake mixing efficiency in winter.
+ - max_DO: Maximum DO at the bottom of the lake express the Winter Mixing effeiciency of that year. 
+
+```{r}
+
+plot(DO_mixing_anoxia$maxDO, DO_mixing_anoxia$anoxDOY, xlab = "Maximum Dissolved Oxygen ", 
+     ylab = "Anoxia Date (DOY)", 
+     main = "Relationship between Mixing and Anoxia Date")
+
+cor.test(DO_mixing_anoxia$maxDO, DO_mixing_anoxia$anoxDOY, method = "spearman")
+
+```
+
+The highest oxygen during the winter the later DOY is => Positive relationship
+=> It is based on how much we consume during the summer
+
+3.	DO_hypo.csv provides between 2002 and 2017 the total DO mass (ktO2) in the hypolimnion at each monthly sampling date in between 2002-2017. How were those computed from the vertical oxygen profiles? Plot the dynamics of the hypolimnetic DOmass over time (monthXyear). Here you may want to use a ggplot to plot DOmass over month, using different line colors for years). For the plot, does the DOmass dynamics vary a lot between years? 
+
+```{r}
+library(ggplot2)
+
+ggplot(DO_hypo, aes(x = month, y = DOmass, color = as.factor(year))) +
+  geom_line() +
+  labs(title = "Hypolimnetic DO Mass Dynamics (2002-2017)",
+       x = "Month",
+       y = "DO Mass [ktO2] ",
+       color = "Year") +
+  theme_minimal()
+```
+4.	Using data from DO_hypo.csv, compute the annual consumption of DO (in ktO2 per year) and compare between years. The annual DO consumption corresponds in the difference between the max DOmass and min DOmass for each year. Compute also the consumption rate (g O2/d/m2 and g O2/d/m3) in the hypolimnion
+
+```{r}
+library(dplyr)
+ 
+Annual_DO <- DO_hypo %>% 
+  group_by(year) %>% 
+  summarise(
+    min_DO = min(DOmass, na.rm = TRUE),
+    max_DO = max(DOmass, na.rm = TRUE),
+    annual = max(DOmass, na.rm = TRUE) - min(DOmass, na.rm = TRUE)
+  )
+
+ggplot(Annual_DO, aes(x = year, y = annual)) +
+  geom_line() +
+  labs(x = "Year",
+       y = "Annual DO consumption [ktO2] ") +
+  theme_minimal()
+
+V_hypolimnion = 0.34 # Volume of the hypolimnion (<10m depth) [km3]
+S_hypolimnon = 17 # Surface of the hypolimnion (<10m depth) [km2]
+
+# We only have 180 days because the data were taken only during stratification
+#Surface
+
+Annual_DO <- Annual_DO %>%
+  mutate(
+    Consuption_rate_S = (annual*10^9)/180/(17*10^6),
+    Consuption_rate_V = (annual*10^9)/180/(0.34*10^9)
+  )
+Annual_DO
+
+ggplot(Annual_DO, aes(x = year, y = Consuption_rate_S)) +
+  geom_line() +
+  labs(x = "Year",
+       y = "Consumption rate in the hypolimnion [g O2/d/m2] ") +
+  theme_minimal()
+
+ggplot(Annual_DO, aes(x = year, y = Consuption_rate_V)) +
+  geom_line() +
+  labs(x = "Year",
+       y = "Consumption rate in the hypolimnion [g O2/d/m3] ") +
+  theme_minimal()
+
+```
+5.	The consumption of oxygen in the hypolimnion results both from the mineralization of the sinking organic matter in the water column, as well as from processes at the water-sediment interface (oxidation of reduced compounds released from the anoxic sediment). We will estimate the relative contribution of both processes to the hypolimnetic DO consumption.
+
+a.	We will first approximate the DO consumption due to mineralization in the water column. We will consider that at 25m depth, the O2 dynamics is essentially driven by the mineralization of OM and is relatively independent from sediment processes. What is the rate of DO consumption in between April and October at 25m depth? What would be the estimated mass of DO consumed by mineralization in the full hypolimnetic volume? How does it compare with the total hypolimnetic DO consumption? What could be the sources of uncertainties?
+
+25 m ->  Only respiration
+```{r}
+Consuption_25m <- DO_CTD25 %>%
+  group_by(year) %>%
+  summarise(
+    DO_drop_mgL = max(DO, na.rm=TRUE) - min(DO, na.rm=TRUE)
+  ) %>%
+  mutate(
+    Rate_g_m3_d = DO_drop_mgL / 180, # Rate in g/m3/d
+    Mass_min_kt = DO_drop_mgL * V_hypolimnion # Total mass mineralized in the hypolimnion
+  )
+
+Comparison <- left_join(Annual_DO, Consuption_25m, by = "year") %>%
+  mutate(Min_Ratio = Mass_min_kt / annual)
+
+print(Comparison %>% select(year, annual, Mass_min_kt, Min_Ratio))
+```
+
+
+b.	The sediment flux of reduced compounds has been measured from core incubations and was estimated to correspond to a consumption of 0.32gDO/m2/d. Considering that the lake is stratified for 6 months each year, and that the anoxic sediment interface occurs only below 30m, estimate the hypolimnetic DO consumption due to the oxidation of reduced compounds (in ktO2). What is the ratio of hypolimnetic O2 consumption that is due to the flux of reduced compounds? (on average across years).
+```{r}
+
+flux_sed <- 0.32 
+strat_days <- 180 
+S_anoxic_m2 <- S_anoxic_hypolimnion * 10^6 
+
+# Calculate Total Mass from Sediment Flux
+mass_sed_g <- flux_sed * S_anoxic_m2 * strat_days
+mass_sed_kt <- mass_sed_g / 10^9 # convert g to kt
+
+cat("Hypolimnetic DO consumption due to sediment flux:", mass_sed_kt, "ktO2\n")
+
+Comparison <- Comparison %>%
+  mutate(Sediment_kt = mass_sed_kt,
+         Sediment_Ratio = Sediment_kt / annual)
+
+cat("Average ratio of O2 consumption due to reduced compounds:", mean(Comparison$Sediment_Ratio, na.rm=TRUE), "\n")
+```
+
+
+6.	What should be the average hypolimnetic DO mass consumption (in ktO2) during the stratification for the hypolimnion DO to remain on average above 4mgO2/l? How far are we from this objective? Given your previous results, do you think the current DO consumption in the hypolimnion being a legacy of the sediment accumulation during eutrophication or still the consequence of the current lake primary production? 
+```{r}
+target_mass_kt <- 4 * V_hypolimnion
+allowable_cons <- mean(Annual_DO$max_DO, na.rm=TRUE) - target_mass_kt
+
+cat("Target minimum DO mass in hypolimnion:", target_mass_kt, "ktO2\n")
+cat("Average allowable consumption to remain above 4mg/L:", allowable_cons, "ktO2\n")
+cat("Current average consumption is:", mean(Annual_DO$annual, na.rm=TRUE), "ktO2\n")
+```
+
+
+7.	Given what you’ve seen in the previous limnolabs, what could be the indirect consequences of the connexion with Schiffenen on the DO hypolimnetic concentrations (in terms of stratification or P inputs)?
+
